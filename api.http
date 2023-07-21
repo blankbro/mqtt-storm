@@ -1,0 +1,5 @@
+###
+POST http://localhost:8080/client?count=10
+
+###
+DELETE http://localhost:8080/client?count=2
