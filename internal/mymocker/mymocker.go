@@ -53,9 +53,6 @@ func (*MyMocker) PubStorm(client mqtt.Client) {
 			0, false,
 			fmt.Sprintf("hello %d", msgCount),
 		)
-		select {
-		case <-time.After(3 * time.Second):
-
-		}
+		time.Sleep(3 * time.Second)
 	}
 }
