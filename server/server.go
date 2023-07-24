@@ -40,9 +40,9 @@ type MqttStormServer struct {
 	initClientNum uint64
 }
 
-func NewMqttStormServer(addr string, broker string, username string, password string, mocker mocker.Mocker, clientNum uint64) *MqttStormServer {
+func NewMqttStormServer(addr string, mocker mocker.Mocker, clientNum uint64) *MqttStormServer {
 	srv := &MqttStormServer{
-		clientFactory: factory.NewMqttClientFactory(broker, username, password, mocker),
+		clientFactory: factory.NewMqttClientFactory(mocker),
 		srv:           &http.Server{Addr: addr},
 		initClientNum: clientNum,
 	}

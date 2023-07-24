@@ -25,6 +25,10 @@ func main() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 
-	mss := server.NewMqttStormServer(":8080", *broker, *username, *password, &mymocker.MyMocker{}, *clientNum)
+	mss := server.NewMqttStormServer(":8080", &mymocker.MyMocker{
+		Broker:   *broker,
+		Username: *username,
+		Password: *password,
+	}, *clientNum)
 	mss.ListenAndServe()
 }

@@ -7,24 +7,16 @@ import (
 	"github.com/timeway/mqtt-storm/mocker"
 	"math"
 	"sync"
-	"time"
 )
 
 type MqttClientFactory struct {
 	sync.RWMutex
-	Broker         string
-	Username       string
-	Password       string
-	MaxClientIdNum uint64
-	MqttClientMap  map[string]mqtt.Client
-	Mocker         mocker.Mocker
+	MqttClientMap map[string]mqtt.Client
+	Mocker        mocker.Mocker
 }
 
-func NewMqttClientFactory(broker string, username string, password string, mocker mocker.Mocker) *MqttClientFactory {
+func NewMqttClientFactory(mocker mocker.Mocker) *MqttClientFactory {
 	return &MqttClientFactory{
-		Broker:        broker,
-		Username:      username,
-		Password:      password,
 		MqttClientMap: make(map[string]mqtt.Client),
 		Mocker:        mocker,
 	}
@@ -64,14 +56,12 @@ func (factory *MqttClientFactory) AddClientByCount(count uint64) (uint64, error)
 	defer factory.Unlock()
 
 	for i := uint64(0); i < count; i++ {
-		num := factory.MaxClientIdNum + 1
-		clientId := fmt.Sprintf("client-%06d", num)
-		mqttClient, connErr := factory.newMqttClient(clientId)
+		mqttClient, connErr := factory.newMqttClient()
 		if connErr != nil {
 			return i, connErr
 		}
-		factory.MaxClientIdNum = num
-		factory.MqttClientMap[clientId] = mqttClient
+		optionsReader := mqttClient.OptionsReader()
+		factory.MqttClientMap[optionsReader.ClientID()] = mqttClient
 		subErr := factory.Mocker.SubStorm(mqttClient)
 		if subErr != nil {
 			return i, connErr
@@ -83,7 +73,7 @@ func (factory *MqttClientFactory) AddClientByCount(count uint64) (uint64, error)
 }
 
 func (factory *MqttClientFactory) RemoveClientByCount(count uint64) {
-	count = uint64(math.Min(float64(factory.MaxClientIdNum), float64(count)))
+	count = uint64(math.Min(float64(len(factory.MqttClientMap)), float64(count)))
 	for clientId := range factory.MqttClientMap {
 		if count <= 0 {
 			break
@@ -98,35 +88,67 @@ func (factory *MqttClientFactory) RemoveClientByCount(count uint64) {
 	}
 }
 
-func (factory *MqttClientFactory) newMqttClient(clientId string) (mqtt.Client, error) {
-	options := mqtt.NewClientOptions()
-	options.AddBroker(factory.Broker)
-	options.SetUsername(factory.Username)
-	options.SetPassword(factory.Password)
-	options.SetClientID(clientId)
-	options.SetConnectTimeout(30 * time.Second)
-	options.SetCleanSession(true)
+func (factory *MqttClientFactory) newMqttClient() (mqtt.Client, error) {
+	options := factory.Mocker.NewClientOptions()
+	_, exist := factory.MqttClientMap[options.ClientID]
+	retryCount := 0
+	for exist {
+		if retryCount >= 10 {
+			logrus.Warnf("重试%d次，仍然没有创建成功", retryCount)
+			return nil, fmt.Errorf("重试%d次，仍然没有创建成功", retryCount)
+		}
+		retryCount++
+		logrus.Warnf("创建新客户端时clientId[%s]与已有的客户端重复，开始第%d次重试", options.ClientID, retryCount)
+		options = factory.Mocker.NewClientOptions()
+		_, exist = factory.MqttClientMap[options.ClientID]
+	}
+
+	// 不允许自动重连。一旦有客户端断开连接说明已经到达瓶颈
 	options.SetAutoReconnect(false)
+
+	// 包装 DefaultPublishHandler
+	publishHandler := options.DefaultPublishHandler
 	options.SetDefaultPublishHandler(func(client mqtt.Client, msg mqtt.Message) {
 		optionsReader := client.OptionsReader()
 		logrus.Infof("Client[%s] published %s -> %s", optionsReader.ClientID(), msg.Topic(), msg.Payload())
+		if publishHandler != nil {
+			publishHandler(client, msg)
+		}
 	})
+
+	// 包装 OnConnectHandler
+	connectHandler := options.OnConnect
 	options.SetOnConnectHandler(func(client mqtt.Client) {
 		optionsReader := client.OptionsReader()
 		logrus.Infof("Client[%s] connected", optionsReader.ClientID())
+		if connectHandler != nil {
+			connectHandler(client)
+		}
 	})
+
+	// 包装 ConnectionLostHandler
+	connectionLostHandler := options.OnConnectionLost
 	options.SetConnectionLostHandler(func(client mqtt.Client, err error) {
 		optionsReader := client.OptionsReader()
 		logrus.Warnf("Client[%s] connection lost, error: %s", optionsReader.ClientID(), err.Error())
 		delete(factory.MqttClientMap, optionsReader.ClientID())
+		if connectionLostHandler != nil {
+			connectionLostHandler(client, err)
+		}
 	})
+
+	// 包装 ReconnectingHandler
+	reconnectHandler := options.OnReconnecting
 	options.SetReconnectingHandler(func(client mqtt.Client, options *mqtt.ClientOptions) {
 		logrus.Infof("Client[%s] reconnecting", options.ClientID)
+		if reconnectHandler != nil {
+			reconnectHandler(client, options)
+		}
 	})
 
 	client := mqtt.NewClient(options)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		logrus.Errorf("Client[%s] connect fail, error: %s", clientId, token.Error().Error())
+		logrus.Errorf("Client[%s] connect fail, error: %s", options.ClientID, token.Error().Error())
 		return nil, token.Error()
 	}
 

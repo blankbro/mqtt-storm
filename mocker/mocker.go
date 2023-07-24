@@ -5,6 +5,7 @@ import (
 )
 
 type Mocker interface {
+	NewClientOptions() *mqtt.ClientOptions
 	SubStorm(client mqtt.Client) error
 	PubStorm(client mqtt.Client)
 }

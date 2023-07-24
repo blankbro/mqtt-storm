@@ -3,11 +3,28 @@ package mymocker
 import (
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"strings"
 	"time"
 )
 
 type MyMocker struct {
+	Broker   string
+	Username string
+	Password string
+}
+
+func (myMocker *MyMocker) NewClientOptions() *mqtt.ClientOptions {
+	options := mqtt.NewClientOptions()
+	options.AddBroker(myMocker.Broker)
+	options.SetUsername(myMocker.Username)
+	options.SetPassword(myMocker.Password)
+	options.SetClientID(strings.Replace(uuid.New().String(), "-", "", -1))
+	options.SetConnectTimeout(30 * time.Second)
+	options.SetCleanSession(true)
+	options.SetAutoReconnect(false)
+	return options
 }
 
 func (*MyMocker) SubStorm(client mqtt.Client) error {
