@@ -5,7 +5,8 @@ import (
 	"fmt"
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
-	"github.com/timeway/mqtt-storm/mocker"
+	"github.com/timeway/mqtt-storm/factory"
+	"github.com/timeway/mqtt-storm/internal/mymocker"
 	"github.com/timeway/mqtt-storm/server"
 	"log"
 	"os"
@@ -46,7 +47,7 @@ func main() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 
-	m := mocker.NewMocker(*broker, *username, *password)
+	m := factory.NewMqttClientFactory(*broker, *username, *password, &mymocker.MyMocker{})
 	mss := server.NewMqttStormServer(":8080", m)
 	errChan, err := mss.ListenAndServe(*clientNum)
 	if err != nil {

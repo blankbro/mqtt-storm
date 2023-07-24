@@ -2,9 +2,10 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
-	"github.com/timeway/mqtt-storm/mocker"
+	"github.com/timeway/mqtt-storm/factory"
 	"github.com/timeway/mqtt-storm/server/middleware"
 	"net/http"
 	"strconv"
@@ -12,11 +13,11 @@ import (
 )
 
 type MqttStormServer struct {
-	mocker *mocker.Mocker
+	mocker *factory.MqttClientFactory
 	srv    *http.Server
 }
 
-func NewMqttStormServer(addr string, m *mocker.Mocker) *MqttStormServer {
+func NewMqttStormServer(addr string, m *factory.MqttClientFactory) *MqttStormServer {
 	srv := &MqttStormServer{
 		mocker: m,
 		srv:    &http.Server{Addr: addr},
@@ -59,15 +60,16 @@ func (mss *MqttStormServer) Shutdown() error {
 func (mss *MqttStormServer) addClient(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	countStr := queryParams.Get("count")
-	count, err := strconv.ParseInt(countStr, 10, 64)
-	if err != nil {
-		logrus.Infof("parse count error: %s", err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	count, parseErr := strconv.ParseInt(countStr, 10, 64)
+	if parseErr != nil {
+		logrus.Infof("parse count error: %s", parseErr.Error())
+		http.Error(w, parseErr.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err = mss.mocker.AddClient(uint64(count)); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if successCount, addClientErr := mss.mocker.AddClientByCount(uint64(count)); addClientErr != nil {
+		responseStr := fmt.Sprintf("成功初始化客户端百分比为: %d/%d, 终止原因: %s", successCount, count, addClientErr.Error())
+		http.Error(w, responseStr, http.StatusBadRequest)
 		return
 	}
 
@@ -84,7 +86,7 @@ func (mss *MqttStormServer) removeClient(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	mss.mocker.RemoveClient(uint64(count))
+	mss.mocker.RemoveClientByCount(uint64(count))
 
 	w.Write([]byte("ok"))
 }
