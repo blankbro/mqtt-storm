@@ -66,13 +66,16 @@ func (factory *MqttClientFactory) AddClientByCount(count uint64) (uint64, error)
 	for i := uint64(0); i < count; i++ {
 		num := factory.MaxClientIdNum + 1
 		clientId := fmt.Sprintf("client-%06d", num)
-		mqttClient, err := factory.newMqttClient(clientId)
-		if err != nil {
-			return i + 1, err
+		mqttClient, connErr := factory.newMqttClient(clientId)
+		if connErr != nil {
+			return i, connErr
 		}
 		factory.MaxClientIdNum = num
 		factory.MqttClientMap[clientId] = mqttClient
-		go factory.Mocker.SubStorm(mqttClient)
+		subErr := factory.Mocker.SubStorm(mqttClient)
+		if subErr != nil {
+			return i, connErr
+		}
 		go factory.Mocker.PubStorm(mqttClient)
 	}
 
