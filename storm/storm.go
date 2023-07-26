@@ -7,12 +7,14 @@ import (
 	"github.com/timeway/mqtt-storm/mocker"
 	"math"
 	"sync"
+	"time"
 )
 
 type MqttStorm struct {
 	sync.RWMutex
 	MqttClientMap map[string]mqtt.Client
 	Mocker        mocker.Mocker
+	started       bool
 }
 
 func NewMqttStorm(mocker mocker.Mocker) *MqttStorm {
@@ -33,10 +35,22 @@ func (ms *MqttStorm) Shutdown() {
 		disconnectedCount += 1
 		logrus.Infof("%d/%d Client[%s] disconnected", disconnectedCount, mqttClientSize, clientId)
 	}
+	ms.started = false
 	logrus.Infof("shutdown storm finish")
 }
 
 func (ms *MqttStorm) Run(clientNum uint64) {
+	if ms.started {
+		return
+	}
+	ms.started = true
+	go func() {
+		for ms.started {
+			logrus.Infof("clientSize: %d", len(ms.MqttClientMap))
+			time.Sleep(3 * time.Second)
+		}
+	}()
+
 	successCount, err := ms.AddClientByCount(clientNum)
 	if err != nil {
 		logrus.Warnf("成功初始化客户端百分比为: %d/%d, 终止原因: %s", successCount, clientNum, err.Error())

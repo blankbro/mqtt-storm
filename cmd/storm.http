@@ -3,10 +3,13 @@
 POST http://localhost:8080/client?count=10
 
 ### 减少客户端
+# curl -X DELETE http://localhost:8080/client?count=2
 DELETE http://localhost:8080/client?count=2
 
 ### 开启订阅风暴
+# curl -X POST http://localhost:8080/sub
 POST http://localhost:8080/sub
 
 ### 开启发布风暴
+# curl -X POST http://localhost:8080/pub?msgCount=3&pushFrequencyMs=1000&qos=0
 POST http://localhost:8080/pub?msgCount=3&pushFrequencyMs=1000&qos=0
