@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"github.com/timeway/mqtt-storm/internal/mymocker"
+	"github.com/timeway/mqtt-storm/internal/customocker"
 	"github.com/timeway/mqtt-storm/server"
 	"log"
 	"os"
@@ -25,7 +25,7 @@ func main() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 
-	mss := server.NewMqttStormServer(":8080", &mymocker.MyMocker{
+	mss := server.NewMqttStormServer(":8080", &customocker.Mocker{
 		Broker:   *broker,
 		Username: *username,
 		Password: *password,

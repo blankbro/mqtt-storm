@@ -1,4 +1,4 @@
-package factory
+package storm
 
 import (
 	"fmt"
@@ -9,35 +9,35 @@ import (
 	"sync"
 )
 
-type MqttClientFactory struct {
+type MqttStorm struct {
 	sync.RWMutex
 	MqttClientMap map[string]mqtt.Client
 	Mocker        mocker.Mocker
 }
 
-func NewMqttClientFactory(mocker mocker.Mocker) *MqttClientFactory {
-	return &MqttClientFactory{
+func NewMqttStorm(mocker mocker.Mocker) *MqttStorm {
+	return &MqttStorm{
 		MqttClientMap: make(map[string]mqtt.Client),
 		Mocker:        mocker,
 	}
 }
 
-func (factory *MqttClientFactory) Shutdown() {
-	logrus.Infof("shutdown factory start")
-	mqttClientSize := len(factory.MqttClientMap)
+func (ms *MqttStorm) Shutdown() {
+	logrus.Infof("shutdown storm start")
+	mqttClientSize := len(ms.MqttClientMap)
 	disconnectedCount := 0
-	for clientId, client := range factory.MqttClientMap {
+	for clientId, client := range ms.MqttClientMap {
 		if client.IsConnected() {
 			client.Disconnect(5_000)
 		}
 		disconnectedCount += 1
 		logrus.Infof("%d/%d Client[%s] disconnected", disconnectedCount, mqttClientSize, clientId)
 	}
-	logrus.Infof("shutdown factory finish")
+	logrus.Infof("shutdown storm finish")
 }
 
-func (factory *MqttClientFactory) Run(clientNum uint64) {
-	successCount, err := factory.AddClientByCount(clientNum)
+func (ms *MqttStorm) Run(clientNum uint64) {
+	successCount, err := ms.AddClientByCount(clientNum)
 	if err != nil {
 		logrus.Warnf("成功初始化客户端百分比为: %d/%d, 终止原因: %s", successCount, clientNum, err.Error())
 	} else {
@@ -47,40 +47,35 @@ func (factory *MqttClientFactory) Run(clientNum uint64) {
 
 var CountLessZero = fmt.Errorf("count <= 0")
 
-func (factory *MqttClientFactory) AddClientByCount(count uint64) (uint64, error) {
+func (ms *MqttStorm) AddClientByCount(count uint64) (uint64, error) {
 	if count <= 0 {
 		return 0, CountLessZero
 	}
 
-	factory.Lock()
-	defer factory.Unlock()
+	ms.Lock()
+	defer ms.Unlock()
 
 	for i := uint64(0); i < count; i++ {
-		mqttClient, connErr := factory.newMqttClient()
+		mqttClient, connErr := ms.newMqttClient()
 		if connErr != nil {
 			return i, connErr
 		}
 		optionsReader := mqttClient.OptionsReader()
-		factory.MqttClientMap[optionsReader.ClientID()] = mqttClient
-		subErr := factory.Mocker.SubStorm(mqttClient)
-		if subErr != nil {
-			return i, connErr
-		}
-		go factory.Mocker.PubStorm(mqttClient)
+		ms.MqttClientMap[optionsReader.ClientID()] = mqttClient
 	}
 
 	return count, nil
 }
 
-func (factory *MqttClientFactory) RemoveClientByCount(count uint64) {
-	count = uint64(math.Min(float64(len(factory.MqttClientMap)), float64(count)))
-	for clientId := range factory.MqttClientMap {
+func (ms *MqttStorm) RemoveClientByCount(count uint64) {
+	count = uint64(math.Min(float64(len(ms.MqttClientMap)), float64(count)))
+	for clientId := range ms.MqttClientMap {
 		if count <= 0 {
 			break
 		}
-		client, ok := factory.MqttClientMap[clientId]
+		client, ok := ms.MqttClientMap[clientId]
 		if ok {
-			delete(factory.MqttClientMap, clientId)
+			delete(ms.MqttClientMap, clientId)
 			client.Disconnect(5_000)
 			logrus.Infof("Client[%s] disconnected", clientId)
 			count--
@@ -88,9 +83,9 @@ func (factory *MqttClientFactory) RemoveClientByCount(count uint64) {
 	}
 }
 
-func (factory *MqttClientFactory) newMqttClient() (mqtt.Client, error) {
-	options := factory.Mocker.NewClientOptions()
-	_, exist := factory.MqttClientMap[options.ClientID]
+func (ms *MqttStorm) newMqttClient() (mqtt.Client, error) {
+	options := ms.Mocker.NewClientOptions()
+	_, exist := ms.MqttClientMap[options.ClientID]
 	retryCount := 0
 	for exist {
 		if retryCount >= 10 {
@@ -99,8 +94,8 @@ func (factory *MqttClientFactory) newMqttClient() (mqtt.Client, error) {
 		}
 		retryCount++
 		logrus.Warnf("创建新客户端时clientId[%s]与已有的客户端重复，开始第%d次重试", options.ClientID, retryCount)
-		options = factory.Mocker.NewClientOptions()
-		_, exist = factory.MqttClientMap[options.ClientID]
+		options = ms.Mocker.NewClientOptions()
+		_, exist = ms.MqttClientMap[options.ClientID]
 	}
 
 	// 不允许自动重连。一旦有客户端断开连接说明已经到达瓶颈
@@ -131,7 +126,7 @@ func (factory *MqttClientFactory) newMqttClient() (mqtt.Client, error) {
 	options.SetConnectionLostHandler(func(client mqtt.Client, err error) {
 		optionsReader := client.OptionsReader()
 		logrus.Warnf("Client[%s] connection lost, error: %s", optionsReader.ClientID(), err.Error())
-		delete(factory.MqttClientMap, optionsReader.ClientID())
+		delete(ms.MqttClientMap, optionsReader.ClientID())
 		if connectionLostHandler != nil {
 			connectionLostHandler(client, err)
 		}
@@ -153,4 +148,23 @@ func (factory *MqttClientFactory) newMqttClient() (mqtt.Client, error) {
 	}
 
 	return client, nil
+}
+
+func (ms *MqttStorm) SubStorm() (int32, int32, error) {
+	successCount := int32(0)
+	totalCount := int32(len(ms.MqttClientMap))
+	for _, client := range ms.MqttClientMap {
+		err := ms.Mocker.Sub(client)
+		if err != nil {
+			return successCount, totalCount, err
+		}
+		successCount++
+	}
+	return successCount, totalCount, nil
+}
+
+func (ms *MqttStorm) PubStorm(msgCount int64, pushFrequencyMs int64, qos byte) {
+	for _, client := range ms.MqttClientMap {
+		go ms.Mocker.Pub(client, msgCount, pushFrequencyMs, qos)
+	}
 }

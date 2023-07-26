@@ -1,4 +1,4 @@
-package mymocker
+package customocker
 
 import (
 	"fmt"
@@ -9,17 +9,17 @@ import (
 	"time"
 )
 
-type MyMocker struct {
+type Mocker struct {
 	Broker   string
 	Username string
 	Password string
 }
 
-func (myMocker *MyMocker) NewClientOptions() *mqtt.ClientOptions {
+func (m *Mocker) NewClientOptions() *mqtt.ClientOptions {
 	options := mqtt.NewClientOptions()
-	options.AddBroker(myMocker.Broker)
-	options.SetUsername(myMocker.Username)
-	options.SetPassword(myMocker.Password)
+	options.AddBroker(m.Broker)
+	options.SetUsername(m.Username)
+	options.SetPassword(m.Password)
 	options.SetClientID(strings.Replace(uuid.New().String(), "-", "", -1))
 	options.SetConnectTimeout(30 * time.Second)
 	options.SetCleanSession(true)
@@ -27,7 +27,7 @@ func (myMocker *MyMocker) NewClientOptions() *mqtt.ClientOptions {
 	return options
 }
 
-func (*MyMocker) SubStorm(client mqtt.Client) error {
+func (*Mocker) Sub(client mqtt.Client) error {
 	reader := client.OptionsReader()
 	token := client.Subscribe(fmt.Sprintf("/test/sub/%s", reader.ClientID()), 0, func(client mqtt.Client, message mqtt.Message) {
 		optionsReader := client.OptionsReader()
@@ -42,17 +42,20 @@ func (*MyMocker) SubStorm(client mqtt.Client) error {
 	return nil
 }
 
-func (*MyMocker) PubStorm(client mqtt.Client) {
+func (*Mocker) Pub(client mqtt.Client, msgCount int64, pushFrequencyMs int64, qos byte) {
 	reader := client.OptionsReader()
 	clientId := reader.ClientID()
-	msgCount := 0
-	for client.IsConnected() {
-		msgCount++
-		client.Publish(
+	for client.IsConnected() && msgCount > 0 {
+		token := client.Publish(
 			fmt.Sprintf("/test/sub/%s", clientId),
-			0, false,
+			qos, false,
 			fmt.Sprintf("hello %d", msgCount),
 		)
-		time.Sleep(3 * time.Second)
+		token.Wait()
+		if token.Error() != nil {
+			logrus.Errorf("publish error: %s", token.Error().Error())
+		}
+		time.Sleep(time.Duration(pushFrequencyMs) * time.Millisecond)
+		msgCount--
 	}
 }

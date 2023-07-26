@@ -6,6 +6,6 @@ import (
 
 type Mocker interface {
 	NewClientOptions() *mqtt.ClientOptions
-	SubStorm(client mqtt.Client) error
-	PubStorm(client mqtt.Client)
+	Sub(client mqtt.Client) error
+	Pub(client mqtt.Client, msgCount int64, pushFrequencyMs int64, qos byte)
 }

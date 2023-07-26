@@ -6,9 +6,10 @@ import (
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
-	"github.com/timeway/mqtt-storm/factory"
 	"github.com/timeway/mqtt-storm/mocker"
 	"github.com/timeway/mqtt-storm/server/middleware"
+	"github.com/timeway/mqtt-storm/server/response"
+	"github.com/timeway/mqtt-storm/storm"
 	"net/http"
 	"os"
 	"os/signal"
@@ -35,14 +36,14 @@ func init() {
 }
 
 type MqttStormServer struct {
-	clientFactory *factory.MqttClientFactory
+	mqttStorm     *storm.MqttStorm
 	srv           *http.Server
 	initClientNum uint64
 }
 
 func NewMqttStormServer(addr string, mocker mocker.Mocker, clientNum uint64) *MqttStormServer {
 	srv := &MqttStormServer{
-		clientFactory: factory.NewMqttClientFactory(mocker),
+		mqttStorm:     storm.NewMqttStorm(mocker),
 		srv:           &http.Server{Addr: addr},
 		initClientNum: clientNum,
 	}
@@ -50,6 +51,8 @@ func NewMqttStormServer(addr string, mocker mocker.Mocker, clientNum uint64) *Mq
 	router := mux.NewRouter()
 	router.HandleFunc("/client", srv.addClient).Methods("POST")
 	router.HandleFunc("/client", srv.removeClient).Methods("DELETE")
+	router.HandleFunc("/sub", srv.subStorm).Methods("POST")
+	router.HandleFunc("/pub", srv.pubStorm).Methods("POST")
 
 	srv.srv.Handler = middleware.Logging(router)
 
@@ -69,7 +72,7 @@ func (mss *MqttStormServer) ListenAndServe() {
 		logrus.Errorf("server error: %s", err.Error())
 		return
 	case <-time.After(1 * time.Second):
-		mss.clientFactory.Run(mss.initClientNum)
+		mss.mqttStorm.Run(mss.initClientNum)
 	}
 
 	shutdown := make(chan os.Signal, 1)
@@ -83,7 +86,7 @@ func (mss *MqttStormServer) ListenAndServe() {
 	case err = <-errChan:
 		logrus.Errorf("server error: %s", err.Error())
 	case <-shutdown:
-		err = mss.Shutdown()
+		err = mss.shutdown()
 		if err != nil {
 			logrus.Errorf("shutdown error: %s", err.Error())
 		}
@@ -94,11 +97,11 @@ func (mss *MqttStormServer) ListenAndServe() {
 	logrus.Infof("=========>>> gameover <<<=========")
 }
 
-func (mss *MqttStormServer) Shutdown() error {
+func (mss *MqttStormServer) shutdown() error {
 	ctx, cf := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cf()
 	err := mss.srv.Shutdown(ctx)
-	mss.clientFactory.Shutdown()
+	mss.mqttStorm.Shutdown()
 	return err
 }
 
@@ -107,31 +110,65 @@ func (mss *MqttStormServer) addClient(w http.ResponseWriter, r *http.Request) {
 	countStr := queryParams.Get("count")
 	count, parseErr := strconv.ParseInt(countStr, 10, 64)
 	if parseErr != nil {
-		logrus.Infof("parse count error: %s", parseErr.Error())
-		http.Error(w, parseErr.Error(), http.StatusBadRequest)
+		errInfo := fmt.Sprintf("parse count error: %s", parseErr.Error())
+		response.ErrorResponse(w, errInfo)
 		return
 	}
 
-	if successCount, addClientErr := mss.clientFactory.AddClientByCount(uint64(count)); addClientErr != nil {
-		responseStr := fmt.Sprintf("成功初始化客户端百分比为: %d/%d, 终止原因: %s", successCount, count, addClientErr.Error())
-		http.Error(w, responseStr, http.StatusBadRequest)
+	if successCount, addClientErr := mss.mqttStorm.AddClientByCount(uint64(count)); addClientErr != nil {
+		errInfo := fmt.Sprintf("成功初始化客户端百分比为: %d/%d, 终止原因: %s", successCount, count, addClientErr.Error())
+		response.ErrorResponse(w, errInfo)
 		return
 	}
 
-	w.Write([]byte("ok"))
+	response.SuccessResponse(w, nil)
 }
 
 func (mss *MqttStormServer) removeClient(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	countStr := queryParams.Get("count")
-	count, err := strconv.ParseInt(countStr, 10, 64)
-	if err != nil {
-		logrus.Infof("parse count error: %s", err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	count, parseErr := strconv.ParseInt(countStr, 10, 64)
+	if parseErr != nil {
+		errInfo := fmt.Sprintf("parse count error: %s", parseErr.Error())
+		response.ErrorResponse(w, errInfo)
 		return
 	}
 
-	mss.clientFactory.RemoveClientByCount(uint64(count))
+	mss.mqttStorm.RemoveClientByCount(uint64(count))
 
-	w.Write([]byte("ok"))
+	response.SuccessResponse(w, nil)
+}
+
+func (mss *MqttStormServer) subStorm(w http.ResponseWriter, r *http.Request) {
+	successCount, totalCount, err := mss.mqttStorm.SubStorm()
+	if err != nil {
+		errInfo := fmt.Sprintf("成功订阅的占比为: %d/%d, 终止原因: %s", successCount, totalCount, err.Error())
+		response.ErrorResponse(w, errInfo)
+		return
+	}
+
+	response.SuccessResponse(w, nil)
+}
+
+func (mss *MqttStormServer) pubStorm(w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query()
+	msgCount, parseMsgCountErr := strconv.ParseInt(queryParams.Get("msgCount"), 10, 64)
+	if parseMsgCountErr != nil {
+		errInfo := fmt.Sprintf("parse msgCount error: %s", parseMsgCountErr.Error())
+		response.ErrorResponse(w, errInfo)
+	}
+	pushFrequencyMs, parsePushFrequencyMsErr := strconv.ParseInt(queryParams.Get("pushFrequencyMs"), 10, 64)
+	if parsePushFrequencyMsErr != nil {
+		errInfo := fmt.Sprintf("parse pushFrequencyMs error: %s", parsePushFrequencyMsErr.Error())
+		response.ErrorResponse(w, errInfo)
+	}
+	qos, parseQosErr := strconv.ParseInt(queryParams.Get("qos"), 10, 64)
+	if parseQosErr != nil {
+		errInfo := fmt.Sprintf("parse qos error: %s", parseQosErr.Error())
+		response.ErrorResponse(w, errInfo)
+	}
+
+	mss.mqttStorm.PubStorm(msgCount, pushFrequencyMs, byte(qos))
+
+	response.SuccessResponse(w, nil)
 }
