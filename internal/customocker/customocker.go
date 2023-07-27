@@ -49,10 +49,10 @@ type PubParam struct {
 }
 
 func (*Mocker) Pub(client mqtt.Client, param interface{}) {
-	params := param.(PubParam)
-	msgCount := params.MsgCount
-	pushFrequencyMs := params.PushFrequencyMs
-	qos := params.Qos
+	pubParam := param.(PubParam)
+	msgCount := pubParam.MsgCount
+	pushFrequencyMs := pubParam.PushFrequencyMs
+	qos := pubParam.Qos
 
 	reader := client.OptionsReader()
 	clientId := reader.ClientID()
