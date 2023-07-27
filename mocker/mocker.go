@@ -7,5 +7,5 @@ import (
 type Mocker interface {
 	NewClientOptions() *mqtt.ClientOptions
 	Sub(client mqtt.Client) error
-	Pub(client mqtt.Client, params map[string]interface{})
+	Pub(client mqtt.Client, param interface{})
 }

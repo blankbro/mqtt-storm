@@ -42,10 +42,17 @@ func (*Mocker) Sub(client mqtt.Client) error {
 	return nil
 }
 
-func (*Mocker) Pub(client mqtt.Client, params map[string]interface{}) {
-	msgCount := params["msgCount"].(int64)
-	pushFrequencyMs := params["msgCount"].(int64)
-	qos := params["msgCount"].(byte)
+type PubParam struct {
+	MsgCount        int64
+	PushFrequencyMs int64
+	Qos             byte
+}
+
+func (*Mocker) Pub(client mqtt.Client, param interface{}) {
+	params := param.(PubParam)
+	msgCount := params.MsgCount
+	pushFrequencyMs := params.PushFrequencyMs
+	qos := params.Qos
 
 	reader := client.OptionsReader()
 	clientId := reader.ClientID()

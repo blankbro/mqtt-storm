@@ -6,6 +6,7 @@ import (
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+	"github.com/timeway/mqtt-storm/internal/customocker"
 	"github.com/timeway/mqtt-storm/mocker"
 	"github.com/timeway/mqtt-storm/server/middleware"
 	"github.com/timeway/mqtt-storm/server/response"
@@ -168,11 +169,11 @@ func (mss *MqttStormServer) pubStorm(w http.ResponseWriter, r *http.Request) {
 		response.ErrorResponse(w, errInfo)
 	}
 
-	params := make(map[string]interface{})
-	params["msgCount"] = msgCount
-	params["pushFrequencyMs"] = pushFrequencyMs
-	params["qos"] = qos
-	mss.mqttStorm.PubStorm(params)
+	mss.mqttStorm.PubStorm(&customocker.PubParam{
+		MsgCount:        msgCount,
+		PushFrequencyMs: pushFrequencyMs,
+		Qos:             byte(qos),
+	})
 
 	response.SuccessResponse(w, nil)
 }
