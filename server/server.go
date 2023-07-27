@@ -168,7 +168,11 @@ func (mss *MqttStormServer) pubStorm(w http.ResponseWriter, r *http.Request) {
 		response.ErrorResponse(w, errInfo)
 	}
 
-	mss.mqttStorm.PubStorm(msgCount, pushFrequencyMs, byte(qos))
+	params := make(map[string]interface{})
+	params["msgCount"] = msgCount
+	params["pushFrequencyMs"] = pushFrequencyMs
+	params["qos"] = qos
+	mss.mqttStorm.PubStorm(params)
 
 	response.SuccessResponse(w, nil)
 }

@@ -42,7 +42,11 @@ func (*Mocker) Sub(client mqtt.Client) error {
 	return nil
 }
 
-func (*Mocker) Pub(client mqtt.Client, msgCount int64, pushFrequencyMs int64, qos byte) {
+func (*Mocker) Pub(client mqtt.Client, params map[string]interface{}) {
+	msgCount := params["msgCount"].(int64)
+	pushFrequencyMs := params["msgCount"].(int64)
+	qos := params["msgCount"].(byte)
+
 	reader := client.OptionsReader()
 	clientId := reader.ClientID()
 	for client.IsConnected() && msgCount > 0 {

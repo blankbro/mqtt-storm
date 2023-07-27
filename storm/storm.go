@@ -177,8 +177,8 @@ func (ms *MqttStorm) SubStorm() (int32, int32, error) {
 	return successCount, totalCount, nil
 }
 
-func (ms *MqttStorm) PubStorm(msgCount int64, pushFrequencyMs int64, qos byte) {
+func (ms *MqttStorm) PubStorm(params map[string]interface{}) {
 	for _, client := range ms.MqttClientMap {
-		go ms.Mocker.Pub(client, msgCount, pushFrequencyMs, qos)
+		go ms.Mocker.Pub(client, params)
 	}
 }
