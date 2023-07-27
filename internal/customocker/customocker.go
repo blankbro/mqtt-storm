@@ -1,6 +1,7 @@
 package customocker
 
 import (
+	"encoding/json"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -46,6 +47,17 @@ type PubParam struct {
 	MsgCount        int64
 	PushFrequencyMs int64
 	Qos             byte
+}
+
+func (*Mocker) ParsePubStormRequestBody(requestBody []byte) (interface{}, error) {
+	var pubParam PubParam
+	err := json.Unmarshal(requestBody, &pubParam)
+	if err != nil {
+		fmt.Println("Failed to parse JSON:", err)
+		return nil, err
+	}
+
+	return pubParam, nil
 }
 
 func (*Mocker) Pub(client mqtt.Client, param interface{}) {

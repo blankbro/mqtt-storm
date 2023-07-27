@@ -6,11 +6,11 @@ import (
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
-	"github.com/timeway/mqtt-storm/internal/customocker"
 	"github.com/timeway/mqtt-storm/mocker"
 	"github.com/timeway/mqtt-storm/server/middleware"
 	"github.com/timeway/mqtt-storm/server/response"
 	"github.com/timeway/mqtt-storm/storm"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -140,7 +140,7 @@ func (mss *MqttStormServer) removeClient(w http.ResponseWriter, r *http.Request)
 	response.SuccessResponse(w, nil)
 }
 
-func (mss *MqttStormServer) subStorm(w http.ResponseWriter, r *http.Request) {
+func (mss *MqttStormServer) subStorm(w http.ResponseWriter, _ *http.Request) {
 	successCount, totalCount, err := mss.mqttStorm.SubStorm()
 	if err != nil {
 		errInfo := fmt.Sprintf("成功订阅的占比为: %d/%d, 终止原因: %s", successCount, totalCount, err.Error())
@@ -152,28 +152,16 @@ func (mss *MqttStormServer) subStorm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (mss *MqttStormServer) pubStorm(w http.ResponseWriter, r *http.Request) {
-	queryParams := r.URL.Query()
-	msgCount, parseMsgCountErr := strconv.ParseInt(queryParams.Get("msgCount"), 10, 64)
-	if parseMsgCountErr != nil {
-		errInfo := fmt.Sprintf("parse msgCount error: %s", parseMsgCountErr.Error())
-		response.ErrorResponse(w, errInfo)
-	}
-	pushFrequencyMs, parsePushFrequencyMsErr := strconv.ParseInt(queryParams.Get("pushFrequencyMs"), 10, 64)
-	if parsePushFrequencyMsErr != nil {
-		errInfo := fmt.Sprintf("parse pushFrequencyMs error: %s", parsePushFrequencyMsErr.Error())
-		response.ErrorResponse(w, errInfo)
-	}
-	qos, parseQosErr := strconv.ParseInt(queryParams.Get("qos"), 10, 64)
-	if parseQosErr != nil {
-		errInfo := fmt.Sprintf("parse qos error: %s", parseQosErr.Error())
+	body, readErr := io.ReadAll(r.Body)
+	if readErr != nil {
+		errInfo := fmt.Sprintf("read request body error: %s", readErr.Error())
 		response.ErrorResponse(w, errInfo)
 	}
 
-	mss.mqttStorm.PubStorm(&customocker.PubParam{
-		MsgCount:        msgCount,
-		PushFrequencyMs: pushFrequencyMs,
-		Qos:             byte(qos),
-	})
+	pubErr := mss.mqttStorm.PubStorm(body)
+	if pubErr != nil {
+		response.ErrorResponse(w, pubErr.Error())
+	}
 
 	response.SuccessResponse(w, nil)
 }
