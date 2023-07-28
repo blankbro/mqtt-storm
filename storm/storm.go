@@ -82,6 +82,9 @@ func (ms *MqttStorm) AddClientByCount(count uint64) (uint64, error) {
 }
 
 func (ms *MqttStorm) RemoveClientByCount(count uint64) {
+	ms.Lock()
+	defer ms.Unlock()
+
 	count = uint64(math.Min(float64(len(ms.MqttClientMap)), float64(count)))
 	for clientId := range ms.MqttClientMap {
 		if count <= 0 {
@@ -138,6 +141,9 @@ func (ms *MqttStorm) newMqttClient() (mqtt.Client, error) {
 	// 包装 ConnectionLostHandler
 	connectionLostHandler := options.OnConnectionLost
 	options.SetConnectionLostHandler(func(client mqtt.Client, err error) {
+		ms.Lock()
+		defer ms.Unlock()
+
 		optionsReader := client.OptionsReader()
 		logrus.Warnf("Client[%s] connection lost, error: %s", optionsReader.ClientID(), err.Error())
 		delete(ms.MqttClientMap, optionsReader.ClientID())
