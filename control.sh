@@ -35,10 +35,10 @@ Start(){
   OPTS="-broker mqtt://127.0.0.1:1883 -username admin -password admin -c 10"
   if [ "${OS}" == "Darwin" ]; then
       echo "Running on macOS"
-      nohup ../output/mac/mqtt-storm ${OPTS} > test.log 2>&1 &
+      nohup output/mac/mqtt-storm ${OPTS} > test.log 2>&1 &
   elif [ "${OS}" == "Linux" ]; then
       echo "Running on Linux"
-      nohup ../output/linux/mqtt-storm ${OPTS} > test.log 2>&1 &
+      nohup output/linux/mqtt-storm ${OPTS} > test.log 2>&1 &
   else
       echo "Unsupported operating system: $OS"
       exit 1

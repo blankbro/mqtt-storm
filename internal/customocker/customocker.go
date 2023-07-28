@@ -68,7 +68,7 @@ func (*Mocker) Pub(client mqtt.Client, param interface{}) {
 
 	reader := client.OptionsReader()
 	clientId := reader.ClientID()
-	for client.IsConnected() && msgCount > 0 {
+	for pubCount := int64(0); client.IsConnected() && pubCount <= msgCount; pubCount++ {
 		token := client.Publish(
 			fmt.Sprintf("/test/sub/%s", clientId),
 			qos, false,
@@ -79,6 +79,5 @@ func (*Mocker) Pub(client mqtt.Client, param interface{}) {
 			logrus.Errorf("publish error: %s", token.Error().Error())
 		}
 		time.Sleep(time.Duration(pushFrequencyMs) * time.Millisecond)
-		msgCount--
 	}
 }

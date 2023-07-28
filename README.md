@@ -6,19 +6,21 @@
 
 ```shell
 $ git clone https://github.com/timeway/mqtt-storm.git
-$ cd mqtt-storm/cmd
+$ cd mqtt-storm
 $ ./build.sh
 ```
 
 ## Run
 
 ```shell
-$ ./start.sh
+$ ./control.sh stop
+$ ./control.sh start
+$ ./control.sh restart
 ```
 
 ## Storm
 
-see [storm.http](cmd/storm.http)
+see [http-client.http](http-client.http)
 
 ## Custom Mock
 

@@ -1,18 +1,18 @@
 ### 增加客户端
 # curl -X POST http://localhost:8080/client?count=10
-POST http://localhost:8080/client?count=10
+POST {{host}}/client?count=10
 
 ### 减少客户端
 # curl -X DELETE http://localhost:8080/client?count=2
-DELETE http://localhost:8080/client?count=2
+DELETE {{host}}/client?count=2
 
 ### 开启订阅风暴
 # curl -X POST http://localhost:8080/sub
-POST http://localhost:8080/sub
+POST {{host}}/sub
 
 ### 开启发布风暴
 # curl -X POST -H "Content-Type: application/json" -d '{"msgCount": 3, "pushFrequencyMs": 1000, "qos": 0}' http://localhost:8080/pub
-POST http://localhost:8080/pub
+POST {{host}}/pub
 Content-Type: application/json
 
 {
@@ -20,7 +20,3 @@ Content-Type: application/json
   "pushFrequencyMs": 1000,
   "qos": 0
 }
-
-###
-
-
