@@ -197,9 +197,11 @@ func (ms *MqttStorm) PubStorm(requestBodyBytes []byte) error {
 		return err
 	}
 
+	ms.Lock()
 	for _, client := range ms.MqttClientMap {
 		go ms.Mocker.Pub(client, requestBody)
 	}
+	ms.Unlock()
 
 	return nil
 }
