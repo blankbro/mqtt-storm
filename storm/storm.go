@@ -47,8 +47,10 @@ func Observe(ms *MqttStorm) {
 		sort.Strings(errInfos)
 		currConnectLostCounts := ""
 		for errInfo := range errInfos {
-			count, _ := ms.connectLostCounts.Load(errInfo)
-			currConnectLostCounts += fmt.Sprintf("\n%d ===> %s", count.(int32), errInfo)
+			count, ok := ms.connectLostCounts.Load(errInfo)
+			if ok {
+				currConnectLostCounts += fmt.Sprintf("\n%d ===> %s", count.(int32), errInfo)
+			}
 		}
 		if currConnectLostCounts != lastConnectLostCounts {
 			logrus.Infof("连接丢失统计: %s", currConnectLostCounts)
