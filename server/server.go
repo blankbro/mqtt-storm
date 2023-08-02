@@ -108,15 +108,15 @@ func (mss *MqttStormServer) shutdown() error {
 
 func (mss *MqttStormServer) addClient(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
-	countStr := queryParams.Get("count")
-	count, parseErr := strconv.ParseInt(countStr, 10, 64)
+	targetCountStr := queryParams.Get("target_count")
+	targetCount, parseErr := strconv.ParseInt(targetCountStr, 10, 64)
 	if parseErr != nil {
-		errInfo := fmt.Sprintf("parse count error: %s", parseErr.Error())
+		errInfo := fmt.Sprintf("parse target_count(%s) error: %s", targetCountStr, parseErr.Error())
 		response.ErrorResponse(w, errInfo)
 		return
 	}
 
-	if addClientErr := mss.mqttStorm.AddClientByCount(uint64(count)); addClientErr != nil {
+	if addClientErr := mss.mqttStorm.AddClientByTargetCount(uint64(targetCount)); addClientErr != nil {
 		response.ErrorResponse(w, addClientErr.Error())
 		return
 	}
@@ -126,15 +126,15 @@ func (mss *MqttStormServer) addClient(w http.ResponseWriter, r *http.Request) {
 
 func (mss *MqttStormServer) removeClient(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
-	countStr := queryParams.Get("count")
-	count, parseErr := strconv.ParseInt(countStr, 10, 64)
+	targetCountStr := queryParams.Get("target_count")
+	targetCount, parseErr := strconv.ParseInt(targetCountStr, 10, 64)
 	if parseErr != nil {
-		errInfo := fmt.Sprintf("parse count error: %s", parseErr.Error())
+		errInfo := fmt.Sprintf("parse target_count(%s) error: %s", targetCountStr, parseErr.Error())
 		response.ErrorResponse(w, errInfo)
 		return
 	}
 
-	mss.mqttStorm.RemoveClientByCount(uint64(count))
+	mss.mqttStorm.RemoveClientByTargetCount(uint64(targetCount))
 
 	response.SuccessResponse(w, nil)
 }

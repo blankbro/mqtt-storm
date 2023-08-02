@@ -5,7 +5,6 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
 	"github.com/timeway/mqtt-storm/mocker"
-	"math"
 	"sync"
 	"time"
 )
@@ -27,19 +26,16 @@ func NewMqttStorm(mocker mocker.Mocker) *MqttStorm {
 func (ms *MqttStorm) Shutdown() {
 	logrus.Infof("shutdown storm start")
 	mqttClientSize := len(ms.MqttClientMap)
-	disconnectedCount := 0
-	for clientId, client := range ms.MqttClientMap {
+	for _, client := range ms.MqttClientMap {
 		if client.IsConnected() {
 			client.Disconnect(5_000)
 		}
-		disconnectedCount += 1
-		logrus.Infof("%d/%d Client[%s] disconnected", disconnectedCount, mqttClientSize, clientId)
 	}
 	ms.started = false
-	logrus.Infof("shutdown storm finish")
+	logrus.Infof("shutdown storm finish(client size: %d)", mqttClientSize)
 }
 
-func (ms *MqttStorm) Run(clientNum uint64) {
+func (ms *MqttStorm) Run(clientCount uint64) {
 	if ms.started {
 		return
 	}
@@ -56,23 +52,23 @@ func (ms *MqttStorm) Run(clientNum uint64) {
 		}
 	}()
 
-	addClientErr := ms.AddClientByCount(clientNum)
+	addClientErr := ms.AddClientByTargetCount(clientCount)
 	if addClientErr != nil {
-		logrus.Warnf("AddClientByCount error: %s", addClientErr.Error())
+		logrus.Errorf("AddClientByTargetCount error: %s", addClientErr.Error())
 	}
 }
 
 var CountLessZero = fmt.Errorf("count <= 0")
 
-func (ms *MqttStorm) AddClientByCount(count uint64) error {
-	if count <= 0 {
+func (ms *MqttStorm) AddClientByTargetCount(targetCount uint64) error {
+	if targetCount <= 0 {
 		return CountLessZero
 	}
 
 	ms.Lock()
 	defer ms.Unlock()
 
-	for i := uint64(0); i < count; i++ {
+	for currCount := uint64(len(ms.MqttClientMap)); currCount < targetCount; currCount++ {
 		mqttClient, connectToken, err := ms.newMqttClient()
 		if err != nil {
 			return err
@@ -83,7 +79,7 @@ func (ms *MqttStorm) AddClientByCount(count uint64) error {
 		ms.MqttClientMap[clientId] = mqttClient
 
 		lastClientId := ""
-		if i == count-1 {
+		if currCount == targetCount-1 {
 			lastClientId = clientId
 		}
 
@@ -96,7 +92,7 @@ func (ms *MqttStorm) AddClientByCount(count uint64) error {
 			}
 
 			if lastClientId != "" {
-				logrus.Infof("AddClientByCount(%d) finish", count)
+				logrus.Infof("AddClientByTargetCount(%d) finish", targetCount)
 			}
 
 		}()
@@ -105,21 +101,29 @@ func (ms *MqttStorm) AddClientByCount(count uint64) error {
 	return nil
 }
 
-func (ms *MqttStorm) RemoveClientByCount(count uint64) {
+func (ms *MqttStorm) RemoveClientByTargetCount(targetCount uint64) {
+	if targetCount < 0 {
+		targetCount = 0
+	}
+
+	currCount := uint64(len(ms.MqttClientMap))
+	if currCount <= targetCount {
+		return
+	}
+
 	ms.Lock()
 	defer ms.Unlock()
 
-	count = uint64(math.Min(float64(len(ms.MqttClientMap)), float64(count)))
 	for clientId := range ms.MqttClientMap {
-		if count <= 0 {
+		if currCount <= targetCount {
 			break
 		}
 		client, ok := ms.MqttClientMap[clientId]
 		if ok {
 			delete(ms.MqttClientMap, clientId)
 			client.Disconnect(5_000)
-			logrus.Infof("Client[%s] disconnected", clientId)
-			count--
+			logrus.Debugf("Client[%s] disconnected", clientId)
+			currCount--
 		}
 	}
 }
