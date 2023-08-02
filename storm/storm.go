@@ -42,11 +42,13 @@ func (ms *MqttStorm) Run(clientCount uint64) {
 	ms.started = true
 	go func() {
 		lastClientSize := 0
+		lastPrintTime := time.Now()
 		for ms.started {
 			currClientSize := len(ms.MqttClientMap)
-			if currClientSize != lastClientSize {
+			if currClientSize != lastClientSize || time.Now().Sub(lastPrintTime) > time.Duration(10)*time.Second {
 				logrus.Infof("clientSize: %d", len(ms.MqttClientMap))
 				lastClientSize = currClientSize
+				lastPrintTime = time.Now()
 			}
 			time.Sleep(1 * time.Second)
 		}
