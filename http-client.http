@@ -1,10 +1,10 @@
 ### 增加客户端
 # curl -X POST http://localhost:8080/client?count=10
-POST {{host}}/client?count=10
+POST {{host}}/client?count=400
 
 ### 减少客户端
 # curl -X DELETE http://localhost:8080/client?count=2
-DELETE {{host}}/client?count=2
+DELETE {{host}}/client?count=800
 
 ### 开启订阅风暴
 # curl -X POST http://localhost:8080/sub

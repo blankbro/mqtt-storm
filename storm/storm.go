@@ -55,7 +55,7 @@ func (ms *MqttStorm) Run(clientNum uint64) {
 				lastPrintTime = currTime
 				lastClientSize = currClientSize
 			}
-			time.Sleep(3 * time.Second)
+			time.Sleep(1 * time.Second)
 		}
 	}()
 
@@ -78,12 +78,33 @@ func (ms *MqttStorm) AddClientByCount(count uint64) (uint64, error) {
 	defer ms.Unlock()
 
 	for i := uint64(0); i < count; i++ {
-		mqttClient, connErr := ms.newMqttClient()
-		if connErr != nil {
-			return i, connErr
+		mqttClient, connectToken, err := ms.newMqttClient()
+		if err != nil {
+			return i, err
 		}
+
 		optionsReader := mqttClient.OptionsReader()
-		ms.MqttClientMap[optionsReader.ClientID()] = mqttClient
+		clientId := optionsReader.ClientID()
+		ms.MqttClientMap[clientId] = mqttClient
+
+		lastClientId := ""
+		if i == count-1 {
+			lastClientId = clientId
+		}
+
+		go func() {
+			if connectToken.Wait() && connectToken.Error() != nil {
+				ms.Lock()
+				defer ms.Unlock()
+				logrus.Errorf("mqttClient[%s] conn err: %s", clientId, connectToken.Error().Error())
+				delete(ms.MqttClientMap, clientId)
+			}
+
+			if lastClientId != "" {
+				logrus.Infof("AddClientByCount(%d) finish", count)
+			}
+
+		}()
 	}
 
 	return count, nil
@@ -108,14 +129,14 @@ func (ms *MqttStorm) RemoveClientByCount(count uint64) {
 	}
 }
 
-func (ms *MqttStorm) newMqttClient() (mqtt.Client, error) {
+func (ms *MqttStorm) newMqttClient() (mqtt.Client, mqtt.Token, error) {
 	options := ms.Mocker.NewClientOptions()
 	_, exist := ms.MqttClientMap[options.ClientID]
 	retryCount := 0
 	for exist {
 		if retryCount >= 10 {
 			logrus.Warnf("重试%d次，仍然没有创建成功", retryCount)
-			return nil, fmt.Errorf("重试%d次，仍然没有创建成功", retryCount)
+			return nil, nil, fmt.Errorf("重试%d次，仍然没有创建成功", retryCount)
 		}
 		retryCount++
 		logrus.Warnf("创建新客户端时clientId[%s]与已有的客户端重复，开始第%d次重试", options.ClientID, retryCount)
@@ -170,12 +191,8 @@ func (ms *MqttStorm) newMqttClient() (mqtt.Client, error) {
 	})
 
 	client := mqtt.NewClient(options)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		logrus.Errorf("Client[%s] connect fail, error: %s", options.ClientID, token.Error().Error())
-		return nil, token.Error()
-	}
-
-	return client, nil
+	token := client.Connect()
+	return client, token, nil
 }
 
 func (ms *MqttStorm) SubStorm() (int32, int32, error) {
