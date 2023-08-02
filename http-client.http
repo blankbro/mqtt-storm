@@ -1,17 +1,13 @@
 ### 增加客户端
-# curl -X POST http://localhost:8080/client?count=10
-POST {{host}}/client?count=400
+POST {{host}}/client?target_count=400
 
 ### 减少客户端
-# curl -X DELETE http://localhost:8080/client?count=2
-DELETE {{host}}/client?count=800
+DELETE {{host}}/client?target_count=800
 
 ### 开启订阅风暴
-# curl -X POST http://localhost:8080/sub
 POST {{host}}/sub
 
 ### 开启发布风暴
-# curl -X POST -H "Content-Type: application/json" -d '{"msgCount": 3, "pushFrequencyMs": 1000, "qos": 0}' http://localhost:8080/pub
 POST {{host}}/pub
 Content-Type: application/json
 
