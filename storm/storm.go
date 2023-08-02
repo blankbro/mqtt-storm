@@ -175,7 +175,12 @@ func (ms *MqttStorm) newMqttClient() (mqtt.Client, mqtt.Token, error) {
 		defer ms.Unlock()
 
 		optionsReader := client.OptionsReader()
-		logrus.Warnf("Client[%s] connection lost, error: %s", optionsReader.ClientID(), err.Error())
+		errInfo := fmt.Sprintf("Client[%s] connection lost, error: %s", optionsReader.ClientID(), err.Error())
+		if "pingresp not received, disconnecting" == err.Error() {
+			logrus.Error(errInfo)
+		} else {
+			logrus.Warn(errInfo)
+		}
 		delete(ms.MqttClientMap, optionsReader.ClientID())
 		if connectionLostHandler != nil {
 			connectionLostHandler(client, err)
