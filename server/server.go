@@ -116,9 +116,8 @@ func (mss *MqttStormServer) addClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if successCount, addClientErr := mss.mqttStorm.AddClientByCount(uint64(count)); addClientErr != nil {
-		errInfo := fmt.Sprintf("成功初始化客户端百分比为: %d/%d, 终止原因: %s", successCount, count, addClientErr.Error())
-		response.ErrorResponse(w, errInfo)
+	if addClientErr := mss.mqttStorm.AddClientByCount(uint64(count)); addClientErr != nil {
+		response.ErrorResponse(w, addClientErr.Error())
 		return
 	}
 

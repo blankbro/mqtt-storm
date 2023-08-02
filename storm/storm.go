@@ -46,32 +46,27 @@ func (ms *MqttStorm) Run(clientNum uint64) {
 	ms.started = true
 	go func() {
 		lastClientSize := 0
-		lastPrintTime := time.Now()
 		for ms.started {
 			currClientSize := len(ms.MqttClientMap)
-			currTime := time.Now()
-			if currClientSize != lastClientSize || currTime.Sub(lastPrintTime) > time.Duration(10)*time.Second {
+			if currClientSize != lastClientSize {
 				logrus.Infof("clientSize: %d", len(ms.MqttClientMap))
-				lastPrintTime = currTime
 				lastClientSize = currClientSize
 			}
-			time.Sleep(3 * time.Second)
+			time.Sleep(1 * time.Second)
 		}
 	}()
 
-	successCount, err := ms.AddClientByCount(clientNum)
-	if err != nil {
-		logrus.Warnf("成功初始化客户端百分比为: %d/%d, 终止原因: %s", successCount, clientNum, err.Error())
-	} else {
-		logrus.Infof("成功初始化客户端百分比为: %d/%d", successCount, clientNum)
+	addClientErr := ms.AddClientByCount(clientNum)
+	if addClientErr != nil {
+		logrus.Warnf("AddClientByCount error: %s", addClientErr.Error())
 	}
 }
 
 var CountLessZero = fmt.Errorf("count <= 0")
 
-func (ms *MqttStorm) AddClientByCount(count uint64) (uint64, error) {
+func (ms *MqttStorm) AddClientByCount(count uint64) error {
 	if count <= 0 {
-		return 0, CountLessZero
+		return CountLessZero
 	}
 
 	ms.Lock()
@@ -80,7 +75,7 @@ func (ms *MqttStorm) AddClientByCount(count uint64) (uint64, error) {
 	for i := uint64(0); i < count; i++ {
 		mqttClient, connectToken, err := ms.newMqttClient()
 		if err != nil {
-			return i, err
+			return err
 		}
 
 		optionsReader := mqttClient.OptionsReader()
@@ -107,7 +102,7 @@ func (ms *MqttStorm) AddClientByCount(count uint64) (uint64, error) {
 		}()
 	}
 
-	return count, nil
+	return nil
 }
 
 func (ms *MqttStorm) RemoveClientByCount(count uint64) {
@@ -161,7 +156,7 @@ func (ms *MqttStorm) newMqttClient() (mqtt.Client, mqtt.Token, error) {
 	connectHandler := options.OnConnect
 	options.SetOnConnectHandler(func(client mqtt.Client) {
 		optionsReader := client.OptionsReader()
-		logrus.Infof("Client[%s] connected", optionsReader.ClientID())
+		logrus.Debugf("Client[%s] connected", optionsReader.ClientID())
 		if connectHandler != nil {
 			connectHandler(client)
 		}
