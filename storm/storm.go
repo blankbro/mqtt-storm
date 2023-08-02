@@ -5,6 +5,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
 	"github.com/timeway/mqtt-storm/mocker"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -38,11 +39,17 @@ func Observe(ms *MqttStorm) {
 		}
 
 		// 连接丢失统计信息
-		currConnectLostCounts := ""
+		var errInfos []string
 		ms.connectLostCounts.Range(func(errInfo, count any) bool {
-			currConnectLostCounts += fmt.Sprintf("\n%d ===> %s", count.(int32), errInfo.(string))
+			errInfos = append(errInfos, errInfo.(string))
 			return true
 		})
+		sort.Strings(errInfos)
+		currConnectLostCounts := ""
+		for errInfo := range errInfos {
+			count, _ := ms.connectLostCounts.Load(errInfo)
+			currConnectLostCounts += fmt.Sprintf("\n%d ===> %s", count.(int32), errInfo)
+		}
 		if currConnectLostCounts != lastConnectLostCounts {
 			logrus.Infof("连接丢失统计: %s", currConnectLostCounts)
 			lastConnectLostCounts = currConnectLostCounts
