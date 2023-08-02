@@ -216,8 +216,11 @@ func (ms *MqttStorm) newMqttClient() (mqtt.Client, mqtt.Token, error) {
 
 func addDisconnectReasonCount(ms *MqttStorm, errInfo string) {
 	writeConnectionResetByPeer := "write: connection reset by peer"
+	readConnectionResetByPeer := "read: connection reset by peer"
 	if strings.Contains(errInfo, writeConnectionResetByPeer) {
 		errInfo = writeConnectionResetByPeer
+	} else if strings.Contains(errInfo, readConnectionResetByPeer) {
+		errInfo = readConnectionResetByPeer
 	}
 
 	oldCount, _ := ms.connectLostCounts.LoadOrStore(errInfo, int32(0))
