@@ -116,7 +116,7 @@ func (ms *MqttStorm) addClientByTargetCount(targetCount uint64) error {
 	ms.Lock()
 	defer ms.Unlock()
 
-	for currCount := uint64(len(ms.MqttClientMap)); currCount < targetCount; currCount++ {
+	for currCount := uint64(len(ms.MqttClientMap)); currCount <= targetCount; currCount++ {
 		mqttClient, connectToken, err := ms.newMqttClient()
 		if err != nil {
 			return err
