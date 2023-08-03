@@ -50,8 +50,7 @@ func NewMqttStormServer(addr string, mocker mocker.Mocker, clientNum uint64) *Mq
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/client", srv.addClient).Methods("POST")
-	router.HandleFunc("/client", srv.removeClient).Methods("DELETE")
+	router.HandleFunc("/client", srv.clientStorm).Methods("POST")
 	router.HandleFunc("/sub", srv.subStorm).Methods("POST")
 	router.HandleFunc("/pub", srv.pubStorm).Methods("POST")
 
@@ -106,7 +105,7 @@ func (mss *MqttStormServer) shutdown() error {
 	return err
 }
 
-func (mss *MqttStormServer) addClient(w http.ResponseWriter, r *http.Request) {
+func (mss *MqttStormServer) clientStorm(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	targetCountStr := queryParams.Get("target_count")
 	targetCount, parseErr := strconv.ParseInt(targetCountStr, 10, 64)
@@ -116,25 +115,10 @@ func (mss *MqttStormServer) addClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if addClientErr := mss.mqttStorm.AddClientByTargetCount(uint64(targetCount)); addClientErr != nil {
-		response.ErrorResponse(w, addClientErr.Error())
+	if mockClientErr := mss.mqttStorm.MockClientByTargetCount(uint64(targetCount)); mockClientErr != nil {
+		response.ErrorResponse(w, mockClientErr.Error())
 		return
 	}
-
-	response.SuccessResponse(w, nil)
-}
-
-func (mss *MqttStormServer) removeClient(w http.ResponseWriter, r *http.Request) {
-	queryParams := r.URL.Query()
-	targetCountStr := queryParams.Get("target_count")
-	targetCount, parseErr := strconv.ParseInt(targetCountStr, 10, 64)
-	if parseErr != nil {
-		errInfo := fmt.Sprintf("parse target_count(%s) error: %s", targetCountStr, parseErr.Error())
-		response.ErrorResponse(w, errInfo)
-		return
-	}
-
-	mss.mqttStorm.RemoveClientByTargetCount(uint64(targetCount))
 
 	response.SuccessResponse(w, nil)
 }
