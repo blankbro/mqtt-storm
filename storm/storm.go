@@ -46,10 +46,10 @@ func Observe(ms *MqttStorm) {
 		})
 		sort.Strings(errInfos)
 		currConnectLostCounts := ""
-		for errInfo := range errInfos {
+		for _, errInfo := range errInfos {
 			count, ok := ms.connectLostCounts.Load(errInfo)
 			if ok {
-				currConnectLostCounts += fmt.Sprintf("\n%d ===> %s", count.(int32), errInfo)
+				currConnectLostCounts += fmt.Sprintf("\n%s ===> %d", errInfo, count.(int32))
 			}
 		}
 		if currConnectLostCounts != lastConnectLostCounts {
@@ -226,10 +226,13 @@ func (ms *MqttStorm) newMqttClient() (mqtt.Client, mqtt.Token, error) {
 func addDisconnectReasonCount(ms *MqttStorm, errInfo string) {
 	writeConnectionResetByPeer := "write: connection reset by peer"
 	readConnectionResetByPeer := "read: connection reset by peer"
+	connectConnectionRefused := "connect: connection refused"
 	if strings.Contains(errInfo, writeConnectionResetByPeer) {
 		errInfo = writeConnectionResetByPeer
 	} else if strings.Contains(errInfo, readConnectionResetByPeer) {
 		errInfo = readConnectionResetByPeer
+	} else if strings.Contains(errInfo, connectConnectionRefused) {
+		errInfo = connectConnectionRefused
 	}
 
 	oldCount, _ := ms.connectLostCounts.LoadOrStore(errInfo, int32(0))
