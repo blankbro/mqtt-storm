@@ -29,6 +29,7 @@ func NewMqttStorm(mocker mocker.Mocker) *MqttStorm {
 func Observe(ms *MqttStorm) {
 	lastClientSize := 0
 	lastPrintTime := time.Now()
+	lastPrintErrTime := time.Now()
 	lastConnectLostCounts := ""
 	for ms.started {
 		currClientSize := len(ms.MqttClientMap)
@@ -55,6 +56,10 @@ func Observe(ms *MqttStorm) {
 		if currConnectLostCounts != lastConnectLostCounts {
 			logrus.Infof("连接丢失统计: %s", currConnectLostCounts)
 			lastConnectLostCounts = currConnectLostCounts
+			lastPrintErrTime = time.Now()
+		} else if time.Now().Sub(lastPrintErrTime) > time.Duration(1)*time.Minute {
+			// 持续1分钟没有变化的就清空历史信息
+			lastConnectLostCounts = ""
 		}
 
 		time.Sleep(1 * time.Second)
@@ -225,6 +230,7 @@ func (ms *MqttStorm) newMqttClient() (mqtt.Client, mqtt.Token, error) {
 
 func addDisconnectReasonCount(ms *MqttStorm, errInfo string) {
 	writeConnectionResetByPeer := "write: connection reset by peer"
+	writeBrokenPipe := "write: broken pipe"
 	readConnectionResetByPeer := "read: connection reset by peer"
 	connectConnectionRefused := "connect: connection refused"
 	if strings.Contains(errInfo, writeConnectionResetByPeer) {
@@ -233,6 +239,8 @@ func addDisconnectReasonCount(ms *MqttStorm, errInfo string) {
 		errInfo = readConnectionResetByPeer
 	} else if strings.Contains(errInfo, connectConnectionRefused) {
 		errInfo = connectConnectionRefused
+	} else if strings.Contains(errInfo, writeBrokenPipe) {
+		errInfo = writeBrokenPipe
 	}
 
 	oldCount, _ := ms.connectLostCounts.LoadOrStore(errInfo, int32(0))
