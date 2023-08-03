@@ -104,19 +104,21 @@ func (ms *MqttStorm) MockClientByTargetCount(targetCount uint64) error {
 	currCount := uint64(len(ms.MqttClientMap))
 	changeCount := targetCount - currCount
 	if changeCount > 0 {
-		return ms.addClientByTargetCount(changeCount)
+		return ms.addClientByCount(changeCount)
 	} else if changeCount < 0 {
-		ms.removeClientByTargetCount(-changeCount)
+		ms.removeClientByCount(-changeCount)
 	}
+
+	logrus.Infof("MockClientByTargetCount(%d) finish", targetCount)
 
 	return nil
 }
 
-func (ms *MqttStorm) addClientByTargetCount(targetCount uint64) error {
+func (ms *MqttStorm) addClientByCount(count uint64) error {
 	ms.Lock()
 	defer ms.Unlock()
 
-	for currCount := uint64(len(ms.MqttClientMap)); currCount <= targetCount; currCount++ {
+	for ; count > 0; count-- {
 		mqttClient, connectToken, err := ms.newMqttClient()
 		if err != nil {
 			return err
@@ -126,11 +128,6 @@ func (ms *MqttStorm) addClientByTargetCount(targetCount uint64) error {
 		clientId := optionsReader.ClientID()
 		ms.MqttClientMap[clientId] = mqttClient
 
-		lastClientId := ""
-		if currCount == targetCount-1 {
-			lastClientId = clientId
-		}
-
 		go func() {
 			if connectToken.Wait() && connectToken.Error() != nil {
 				addDisconnectReasonCount(ms, connectToken.Error().Error())
@@ -139,36 +136,27 @@ func (ms *MqttStorm) addClientByTargetCount(targetCount uint64) error {
 				defer ms.Unlock()
 				delete(ms.MqttClientMap, clientId)
 			}
-
-			if lastClientId != "" {
-				logrus.Infof("MockClientByTargetCount(%d) finish", targetCount)
-			}
-
 		}()
 	}
 
 	return nil
 }
 
-func (ms *MqttStorm) removeClientByTargetCount(targetCount uint64) {
+func (ms *MqttStorm) removeClientByCount(count uint64) {
 	ms.Lock()
 	defer ms.Unlock()
 
-	currCount := uint64(len(ms.MqttClientMap))
-	if currCount <= targetCount {
-		return
-	}
-
 	for clientId := range ms.MqttClientMap {
-		if currCount <= targetCount {
+		if count <= 0 {
 			break
 		}
+
 		client, ok := ms.MqttClientMap[clientId]
 		if ok {
 			delete(ms.MqttClientMap, clientId)
 			client.Disconnect(5_000)
 			logrus.Debugf("Client[%s] disconnected", clientId)
-			currCount--
+			count--
 		}
 	}
 }
