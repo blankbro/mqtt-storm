@@ -57,7 +57,7 @@ func Observe(ms *MqttStorm) {
 			logrus.Infof("连接丢失统计: %s", currConnectLostCounts)
 			lastConnectLostCounts = currConnectLostCounts
 			lastPrintErrTime = time.Now()
-		} else if time.Now().Sub(lastPrintErrTime) > time.Duration(1)*time.Minute {
+		} else if currConnectLostCounts != "" && time.Now().Sub(lastPrintErrTime) > time.Duration(1)*time.Minute {
 			// 持续1分钟没有变化的就清空历史信息
 			lastConnectLostCounts = ""
 			ms.connectLostCounts.Range(func(errInfo, count any) bool {
