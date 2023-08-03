@@ -71,7 +71,7 @@ func Observe(ms *MqttStorm) {
 	}
 }
 
-func (ms *MqttStorm) Run(clientCount uint64) {
+func (ms *MqttStorm) Run(clientCount int32) {
 	if ms.started {
 		return
 	}
@@ -96,13 +96,13 @@ func (ms *MqttStorm) Shutdown() {
 	logrus.Infof("shutdown storm finish(client size: %d)", mqttClientSize)
 }
 
-func (ms *MqttStorm) MockClientByTargetCount(targetCount uint64) error {
-	if targetCount <= 0 {
+func (ms *MqttStorm) MockClientByTargetCount(targetCount int32) error {
+	if targetCount < 0 {
 		targetCount = 0
 	}
 
 	var err error
-	currCount := uint64(len(ms.MqttClientMap))
+	currCount := int32(len(ms.MqttClientMap))
 	changeCount := targetCount - currCount
 	if changeCount > 0 {
 		err = ms.addClientByCount(changeCount)
@@ -115,7 +115,7 @@ func (ms *MqttStorm) MockClientByTargetCount(targetCount uint64) error {
 	return err
 }
 
-func (ms *MqttStorm) addClientByCount(count uint64) error {
+func (ms *MqttStorm) addClientByCount(count int32) error {
 	ms.Lock()
 	defer ms.Unlock()
 
@@ -144,7 +144,7 @@ func (ms *MqttStorm) addClientByCount(count uint64) error {
 	return nil
 }
 
-func (ms *MqttStorm) removeClientByCount(count uint64) {
+func (ms *MqttStorm) removeClientByCount(count int32) {
 	ms.Lock()
 	defer ms.Unlock()
 

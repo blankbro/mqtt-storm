@@ -39,10 +39,10 @@ func init() {
 type MqttStormServer struct {
 	mqttStorm     *storm.MqttStorm
 	srv           *http.Server
-	initClientNum uint64
+	initClientNum int32
 }
 
-func NewMqttStormServer(addr string, mocker mocker.Mocker, clientNum uint64) *MqttStormServer {
+func NewMqttStormServer(addr string, mocker mocker.Mocker, clientNum int32) *MqttStormServer {
 	srv := &MqttStormServer{
 		mqttStorm:     storm.NewMqttStorm(mocker),
 		srv:           &http.Server{Addr: addr},
@@ -108,14 +108,14 @@ func (mss *MqttStormServer) shutdown() error {
 func (mss *MqttStormServer) clientStorm(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	targetCountStr := queryParams.Get("target_count")
-	targetCount, parseErr := strconv.ParseInt(targetCountStr, 10, 64)
+	targetCount, parseErr := strconv.ParseInt(targetCountStr, 10, 32)
 	if parseErr != nil {
 		errInfo := fmt.Sprintf("parse target_count(%s) error: %s", targetCountStr, parseErr.Error())
 		response.ErrorResponse(w, errInfo)
 		return
 	}
 
-	if mockClientErr := mss.mqttStorm.MockClientByTargetCount(uint64(targetCount)); mockClientErr != nil {
+	if mockClientErr := mss.mqttStorm.MockClientByTargetCount(int32(targetCount)); mockClientErr != nil {
 		response.ErrorResponse(w, mockClientErr.Error())
 		return
 	}
