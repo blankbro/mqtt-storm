@@ -60,6 +60,11 @@ func Observe(ms *MqttStorm) {
 		} else if time.Now().Sub(lastPrintErrTime) > time.Duration(1)*time.Minute {
 			// 持续1分钟没有变化的就清空历史信息
 			lastConnectLostCounts = ""
+			ms.connectLostCounts.Range(func(errInfo, count any) bool {
+				ms.connectLostCounts.Delete(errInfo)
+				return true
+			})
+			logrus.Infof("连接丢失统计: 1分钟没有连接断开，清空当前数据 %s", currConnectLostCounts)
 		}
 
 		time.Sleep(1 * time.Second)
