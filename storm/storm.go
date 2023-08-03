@@ -101,17 +101,18 @@ func (ms *MqttStorm) MockClientByTargetCount(targetCount uint64) error {
 		targetCount = 0
 	}
 
+	var err error
 	currCount := uint64(len(ms.MqttClientMap))
 	changeCount := targetCount - currCount
 	if changeCount > 0 {
-		return ms.addClientByCount(changeCount)
+		err = ms.addClientByCount(changeCount)
 	} else if changeCount < 0 {
 		ms.removeClientByCount(-changeCount)
 	}
 
 	logrus.Infof("MockClientByTargetCount(%d) finish", targetCount)
 
-	return nil
+	return err
 }
 
 func (ms *MqttStorm) addClientByCount(count uint64) error {
@@ -121,6 +122,7 @@ func (ms *MqttStorm) addClientByCount(count uint64) error {
 	for ; count > 0; count-- {
 		mqttClient, connectToken, err := ms.newMqttClient()
 		if err != nil {
+			logrus.Errorf("newMqttClient error: %s", err.Error())
 			return err
 		}
 
