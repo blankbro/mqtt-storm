@@ -12,11 +12,11 @@ $ git clone https://github.com/timeway/mqtt-storm.git
 $ cd mqtt-storm
 ```
 
-## 1. Coding 编写发布和订阅逻辑（Custom pub and sub logic）
+## 1. 编写发布和订阅逻辑（Custom pub and sub logic）
 
 update [customocker.go](internal/customocker/customocker.go)
 
-## 2. 启动 mqtt-storm（Build and run MQTT-Storm）
+## 2. 启动 MQTT-Storm（Build and run MQTT-Storm）
 
 ```shell
 # Build
@@ -32,7 +32,7 @@ $ ./control.sh restart
 
 Run [http-client.http](http-client.http) or curl command with the same effect.
 
-## 4. 效果查看（Log watch）
+## 4. 日志监视（Log watch）
 
 ```shell
 $ tail -f test.log
