@@ -2,26 +2,38 @@
 
 像风暴一样冲击和评估MQTT服务器的性能
 
-## Build
+![效果展示](README.png)
+
+
+## 0. 下载该项目
 
 ```shell
 $ git clone https://github.com/timeway/mqtt-storm.git
 $ cd mqtt-storm
-$ ./build.sh
 ```
 
-## Run
+## 1. Coding 编写发布和订阅逻辑（Custom pub and sub logic）
+
+update [customocker.go](internal/customocker/customocker.go)
+
+## 2. 启动 mqtt-storm（Build and run MQTT-Storm）
 
 ```shell
+# Build
+$ ./build.sh
+
+# Run
 $ ./control.sh stop
 $ ./control.sh start
 $ ./control.sh restart
 ```
 
-## Storm
+## 3. 开始压测（Start test）
 
-see [http-client.http](http-client.http)
+Run [http-client.http](http-client.http) or curl command with the same effect.
 
-## Custom Mock
+## 4. 效果查看（Log watch）
 
-update [customocker.go](internal/customocker/customocker.go)
+```shell
+$ tail -f test.log
+```

@@ -1,5 +1,5 @@
 ### 模拟客户端（如果要删除所有客户端，target_count设置为0即可）
-POST {{host}}/client?target_count=10
+POST {{host}}/client?target_count=100
 
 ### 开启订阅风暴
 POST {{host}}/sub
