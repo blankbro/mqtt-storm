@@ -37,16 +37,14 @@ func init() {
 }
 
 type MqttStormServer struct {
-	mqttStorm     *storm.MqttStorm
-	srv           *http.Server
-	initClientNum int32
+	mqttStorm *storm.MqttStorm
+	srv       *http.Server
 }
 
-func NewMqttStormServer(addr string, mocker mocker.Mocker, clientNum int32) *MqttStormServer {
+func NewMqttStormServer(addr string, mocker mocker.Mocker) *MqttStormServer {
 	srv := &MqttStormServer{
-		mqttStorm:     storm.NewMqttStorm(mocker),
-		srv:           &http.Server{Addr: addr},
-		initClientNum: clientNum,
+		mqttStorm: storm.NewMqttStorm(mocker),
+		srv:       &http.Server{Addr: addr},
 	}
 
 	router := mux.NewRouter()
@@ -60,20 +58,7 @@ func NewMqttStormServer(addr string, mocker mocker.Mocker, clientNum int32) *Mqt
 }
 
 func (mss *MqttStormServer) ListenAndServe() {
-	errChan := make(chan error)
-	go func() {
-		err := mss.srv.ListenAndServe()
-		errChan <- err
-	}()
-
-	var err error
-	select {
-	case err = <-errChan:
-		logrus.Errorf("server error: %s", err.Error())
-		return
-	case <-time.After(1 * time.Second):
-		mss.mqttStorm.Run(mss.initClientNum)
-	}
+	errChan := mss.start()
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
@@ -83,10 +68,10 @@ func (mss *MqttStormServer) ListenAndServe() {
 	logrus.Infof("=========>>> successfull <<<=========")
 
 	select {
-	case err = <-errChan:
+	case err := <-errChan:
 		logrus.Errorf("server error: %s", err.Error())
 	case <-shutdown:
-		err = mss.shutdown()
+		err := mss.shutdown()
 		if err != nil {
 			logrus.Errorf("shutdown error: %s", err.Error())
 		}
@@ -97,9 +82,28 @@ func (mss *MqttStormServer) ListenAndServe() {
 	logrus.Infof("=========>>> gameover <<<=========")
 }
 
+func (mss *MqttStormServer) start() chan error {
+	mss.mqttStorm.Run()
+
+	errChan := make(chan error)
+	go func() {
+		err := mss.srv.ListenAndServe()
+		errChan <- err
+	}()
+
+	select {
+	case err := <-errChan:
+		logrus.Panicf("server error: %s", err.Error())
+	case <-time.After(1 * time.Second):
+	}
+
+	return errChan
+}
+
 func (mss *MqttStormServer) shutdown() error {
 	ctx, cf := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cf()
+
 	err := mss.srv.Shutdown(ctx)
 	mss.mqttStorm.Shutdown()
 	return err

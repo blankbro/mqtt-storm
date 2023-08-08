@@ -26,61 +26,17 @@ func NewMqttStorm(mocker mocker.Mocker) *MqttStorm {
 	}
 }
 
-func Observe(ms *MqttStorm) {
-	lastClientSize := 0
-	lastPrintTime := time.Now()
-	lastPrintErrTime := time.Now()
-	lastConnectLostCounts := ""
-	for ms.started {
-		currClientSize := len(ms.MqttClientMap)
-		if currClientSize != lastClientSize || time.Now().Sub(lastPrintTime) > time.Duration(10)*time.Second {
-			logrus.Infof("clientSize: %d", len(ms.MqttClientMap))
-			lastClientSize = currClientSize
-			lastPrintTime = time.Now()
-		}
-
-		// 连接丢失统计信息
-		var errInfos []string
-		ms.connectLostCounts.Range(func(errInfo, count any) bool {
-			errInfos = append(errInfos, errInfo.(string))
-			return true
-		})
-		sort.Strings(errInfos)
-		currConnectLostCounts := ""
-		for _, errInfo := range errInfos {
-			count, ok := ms.connectLostCounts.Load(errInfo)
-			if ok {
-				currConnectLostCounts += fmt.Sprintf("\n%s ===> %d", errInfo, count.(int32))
-			}
-		}
-		if currConnectLostCounts != lastConnectLostCounts {
-			logrus.Infof("连接丢失统计: %s", currConnectLostCounts)
-			lastConnectLostCounts = currConnectLostCounts
-			lastPrintErrTime = time.Now()
-		} else if currConnectLostCounts != "" && time.Now().Sub(lastPrintErrTime) > time.Duration(1)*time.Minute {
-			// 持续1分钟没有变化的就清空历史信息
-			lastConnectLostCounts = ""
-			ms.connectLostCounts.Range(func(errInfo, count any) bool {
-				ms.connectLostCounts.Delete(errInfo)
-				return true
-			})
-			logrus.Infof("连接丢失统计: 1分钟没有连接断开，清空当前数据 %s", currConnectLostCounts)
-		}
-
-		time.Sleep(1 * time.Second)
-	}
-}
-
-func (ms *MqttStorm) Run(clientCount int32) {
+func (ms *MqttStorm) Run() {
 	if ms.started {
 		return
 	}
 	ms.started = true
-	go Observe(ms)
+	go ms.ObserveMqttClient()
+	go ms.Mocker.ObservePub()
 
-	addClientErr := ms.MockClientByTargetCount(clientCount)
+	addClientErr := ms.MockClientByTargetCount(1)
 	if addClientErr != nil {
-		logrus.Errorf("MockClientByTargetCount error: %s", addClientErr.Error())
+		logrus.Panicf("MockClientByTargetCount(1) error: %s", addClientErr.Error())
 	}
 }
 
@@ -132,10 +88,11 @@ func (ms *MqttStorm) addClientByCount(count int32) error {
 
 		go func() {
 			if connectToken.Wait() && connectToken.Error() != nil {
-				addDisconnectReasonCount(ms, connectToken.Error().Error())
+				ms.addDisconnectReasonCount(connectToken.Error().Error())
 
 				ms.Lock()
 				defer ms.Unlock()
+
 				delete(ms.MqttClientMap, clientId)
 			}
 		}()
@@ -205,7 +162,7 @@ func (ms *MqttStorm) newMqttClient() (mqtt.Client, mqtt.Token, error) {
 	connectionLostHandler := options.OnConnectionLost
 	options.SetConnectionLostHandler(func(client mqtt.Client, err error) {
 		errInfo := err.Error()
-		addDisconnectReasonCount(ms, errInfo)
+		ms.addDisconnectReasonCount(errInfo)
 
 		ms.Lock()
 		defer ms.Unlock()
@@ -231,7 +188,7 @@ func (ms *MqttStorm) newMqttClient() (mqtt.Client, mqtt.Token, error) {
 	return client, token, nil
 }
 
-func addDisconnectReasonCount(ms *MqttStorm, errInfo string) {
+func (ms *MqttStorm) addDisconnectReasonCount(errInfo string) {
 	writeConnectionResetByPeer := "write: connection reset by peer"
 	writeBrokenPipe := "write: broken pipe"
 	readConnectionResetByPeer := "read: connection reset by peer"
@@ -252,6 +209,51 @@ func addDisconnectReasonCount(ms *MqttStorm, errInfo string) {
 	}
 }
 
+func (ms *MqttStorm) ObserveMqttClient() {
+	lastClientSize := 0
+	lastPrintTime := time.Now()
+	lastPrintErrTime := time.Now()
+	lastConnectLostCounts := ""
+	for ms.started {
+		currClientSize := len(ms.MqttClientMap)
+		if currClientSize != lastClientSize || time.Now().Sub(lastPrintTime) > time.Duration(10)*time.Second {
+			logrus.Infof("clientSize: %d", len(ms.MqttClientMap))
+			lastClientSize = currClientSize
+			lastPrintTime = time.Now()
+		}
+
+		// 连接丢失统计信息
+		var errInfos []string
+		ms.connectLostCounts.Range(func(errInfo, count any) bool {
+			errInfos = append(errInfos, errInfo.(string))
+			return true
+		})
+		sort.Strings(errInfos)
+		currConnectLostCounts := ""
+		for _, errInfo := range errInfos {
+			count, ok := ms.connectLostCounts.Load(errInfo)
+			if ok {
+				currConnectLostCounts += fmt.Sprintf("\n%s ===> %d", errInfo, count.(int32))
+			}
+		}
+		if currConnectLostCounts != lastConnectLostCounts {
+			logrus.Infof("连接丢失统计: %s", currConnectLostCounts)
+			lastConnectLostCounts = currConnectLostCounts
+			lastPrintErrTime = time.Now()
+		} else if currConnectLostCounts != "" && time.Now().Sub(lastPrintErrTime) > time.Duration(1)*time.Minute {
+			// 持续1分钟没有变化的就清空历史信息
+			lastConnectLostCounts = ""
+			ms.connectLostCounts.Range(func(errInfo, count any) bool {
+				ms.connectLostCounts.Delete(errInfo)
+				return true
+			})
+			logrus.Infof("连接丢失统计: 1分钟没有连接断开，清空当前数据 %s", currConnectLostCounts)
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+}
+
 func (ms *MqttStorm) SubStorm() (int32, int32, error) {
 	successCount := int32(0)
 	totalCount := int32(len(ms.MqttClientMap))
@@ -266,14 +268,14 @@ func (ms *MqttStorm) SubStorm() (int32, int32, error) {
 }
 
 func (ms *MqttStorm) PubStorm(requestBodyBytes []byte) error {
-	requestBody, err := ms.Mocker.ParsePubStormRequestBody(requestBodyBytes)
+	pubParam, err := ms.Mocker.ParsePubParam(requestBodyBytes)
 	if err != nil {
-		return err
+		return fmt.Errorf("request body parse error: %s", err.Error())
 	}
 
 	ms.Lock()
 	for _, client := range ms.MqttClientMap {
-		go ms.Mocker.Pub(client, requestBody)
+		go ms.Mocker.Pub(client, pubParam)
 	}
 	ms.Unlock()
 
