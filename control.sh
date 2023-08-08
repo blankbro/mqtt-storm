@@ -32,7 +32,7 @@ Start(){
   OS=$(uname)
   echo "当前操作系统为${OS}"
 
-  OPTS="-broker mqtt://127.0.0.1:1883 -username admin -password admin -c 10"
+  OPTS="-broker mqtt://127.0.0.1:1883 -username admin -password admin"
   if [ "${OS}" == "Darwin" ]; then
       echo "Running on macOS"
       nohup output/mac/mqtt-storm ${OPTS} > test.log 2>&1 &
