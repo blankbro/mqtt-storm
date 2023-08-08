@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -37,9 +38,9 @@ func (m *Mocker) NewClientOptions() *mqtt.ClientOptions {
 func (*Mocker) Sub(client mqtt.Client) error {
 	reader := client.OptionsReader()
 	token := client.Subscribe(fmt.Sprintf("/test/sub/%s", reader.ClientID()), 0, func(client mqtt.Client, message mqtt.Message) {
-		//timestamp, _ := strconv.ParseInt(string(message.Payload()), 10, 64)
-		//pubTime := time.UnixMilli(timestamp)
-		//logrus.Infof("耗时: %s", time.Now().Sub(pubTime).String())
+		timestamp, _ := strconv.ParseInt(string(message.Payload()), 10, 64)
+		pubTime := time.UnixMilli(timestamp)
+		logrus.Infof("耗时: %s", time.Now().Sub(pubTime).String())
 	})
 
 	if token.Wait() && token.Error() != nil {
