@@ -14,7 +14,7 @@ $ cd mqtt-storm
 
 ## 1. 编写发布和订阅逻辑（Custom pub and sub logic）
 
-update [customocker.go](internal/customocker/customocker.go)
+Update [customocker.go](internal/customocker/customocker.go)
 
 ## 2. 启动 MQTT-Storm（Build and run MQTT-Storm）
 
