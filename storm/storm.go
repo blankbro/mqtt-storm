@@ -3,8 +3,8 @@ package storm
 import (
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/jason-zexin/mqtt-storm/mocker"
 	"github.com/sirupsen/logrus"
-	"github.com/timeway/mqtt-storm/mocker"
 	"sort"
 	"strings"
 	"sync"

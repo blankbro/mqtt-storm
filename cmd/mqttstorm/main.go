@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"github.com/timeway/mqtt-storm/internal/customocker"
-	"github.com/timeway/mqtt-storm/server"
+	"github.com/jason-zexin/mqtt-storm/internal/customocker"
+	"github.com/jason-zexin/mqtt-storm/server"
 	"log"
 	"os"
 	"os/signal"
