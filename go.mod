@@ -1,4 +1,4 @@
-module github.com/timeway/mqtt-storm
+module github.com/jason-zexin/mqtt-storm
 
 go 1.20
 
