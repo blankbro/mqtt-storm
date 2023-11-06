@@ -8,7 +8,7 @@
 ## 0. 下载该项目
 
 ```shell
-$ git clone https://github.com/lzxoy/mqtt-storm.git
+$ git clone https://github.com/blankbro/mqtt-storm.git
 $ cd mqtt-storm
 ```
 

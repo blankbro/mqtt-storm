@@ -1,4 +1,4 @@
-module github.com/lzxoy/mqtt-storm
+module github.com/blankbro/mqtt-storm
 
 go 1.20
 
